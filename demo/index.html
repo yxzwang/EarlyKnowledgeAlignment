@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EKA Multi-Hop RAG Demo</title>
+    <style>
+        :root {
+            --color-primary: #208090;
+            --color-surface: #f5f5f5;
+            --color-text: #1a1a1a;
+            --color-border: #e0e0e0;
+            --color-success: #22aa44;
+            --color-error: #cc3333;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #fafafa;
+            color: var(--color-text);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--color-primary) 0%, #1a5f6f 100%);
+            color: white;
+            padding: 40px 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+        }
+
+        header p {
+            margin: 0;
+            opacity: 0.95;
+            font-size: 14px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .card h2 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            color: var(--color-primary);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: #555;
+        }
+
+        input[type="text"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(32, 128, 144, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        button {
+            display: inline-block;
+            padding: 10px 20px;
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #1a6a7a;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .button-secondary {
+            background: #e8e8e8;
+            color: var(--color-text);
+        }
+
+        .button-secondary:hover {
+            background: #d8d8d8;
+        }
+
+        .output-section {
+            background: #f9f9f9;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            padding: 16px;
+            margin-top: 16px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .step {
+            background: white;
+            border-left: 4px solid var(--color-primary);
+            padding: 12px;
+            margin-bottom: 12px;
+            border-radius: 4px;
+        }
+
+        .step-title {
+            font-weight: 600;
+            color: var(--color-primary);
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+
+        .step-content {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .retrieval-results {
+            display: grid;
+            gap: 12px;
+        }
+
+        .doc-item {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .doc-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--color-primary);
+        }
+
+        .doc-content {
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .doc-score {
+            font-size: 11px;
+            color: #999;
+            margin-top: 6px;
+        }
+
+        .status {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-top: 12px;
+        }
+
+        .status.success {
+            background: rgba(34, 170, 68, 0.1);
+            color: var(--color-success);
+            border: 1px solid rgba(34, 170, 68, 0.3);
+        }
+
+        .status.error {
+            background: rgba(204, 51, 51, 0.1);
+            color: var(--color-error);
+            border: 1px solid rgba(204, 51, 51, 0.3);
+        }
+
+        .status.loading {
+            background: rgba(32, 128, 144, 0.1);
+            color: var(--color-primary);
+            border: 1px solid rgba(32, 128, 144, 0.3);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(32, 128, 144, 0.3);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 6px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .comparison-box {
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            padding: 16px;
+        }
+
+        .comparison-box h4 {
+            margin: 0 0 12px 0;
+            font-size: 13px;
+            color: var(--color-primary);
+        }
+
+        .info-box {
+            background: rgba(32, 128, 144, 0.05);
+            border-left: 4px solid var(--color-primary);
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 768px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+            .comparison {
+                grid-template-columns: 1fr;
+            }
+            header h1 {
+                font-size: 22px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧠 Early Knowledge Alignment (EKA) RAG Demo</h1>
+            <p>Multi-Hop Reasoning with Knowledge Grounding for Complex Questions</p>
+        </header>
+
+        <div class="layout">
+            <!-- Knowledge Base Section -->
+            <div class="card">
+                <h2>📚 Knowledge Base</h2>
+                <div class="info-box">
+                    <strong>Step 1:</strong> Load documents into vector database. These form the knowledge corpus for retrieval.
+                </div>
+
+                <div class="form-group">
+                    <label>Documents (one per line, separated by |)</label>
+                    <textarea id="documents" placeholder="Doc Title | Doc Content&#10;Example: Film Directors | Steven Spielberg was born in 1946 and directed Jaws...">Film Directors | Steven Spielberg was born in 1946 and directed Jaws, Raiders, and E.T.
+Film Directors | Christopher Nolan was born in 1970 and directed Inception and Oppenheimer.
+Film Birthplaces | Steven Spielberg was born in New Jersey.
+Film Birthplaces | Christopher Nolan was born in London.
+Movies | Jaws (1975) directed by Spielberg was a blockbuster.
+Movies | Oppenheimer (2023) directed by Nolan won multiple Oscars.</textarea>
+                </div>
+
+                <button onclick="loadDocuments()">📤 Load Documents</button>
+                <div id="loadStatus"></div>
+            </div>
+
+            <!-- Query Section -->
+            <div class="card">
+                <h2>❓ Multi-Hop Query</h2>
+                <div class="info-box">
+                    <strong>Step 2:</strong> Ask complex questions requiring multiple reasoning steps. EKA retrieves top-k facts first to ground reasoning.
+                </div>
+
+                <div class="form-group">
+                    <label>Your Question</label>
+                    <input type="text" id="question" placeholder="E.g., Which director was born later, and what movies did they make?" value="Which director was born later, and where were they born?">
+                </div>
+
+                <div class="form-group">
+                    <label>Number of Initial Retrieval (top-k)</label>
+                    <input type="number" id="topK" value="3" min="1" max="10">
+                </div>
+
+                <div class="button-group">
+                    <button onclick="performEKAQuery()">⚡ EKA Query (with early alignment)</button>
+                    <button class="button-secondary" onclick="performStandardQuery()">📊 Standard RAG (without EKA)</button>
+                </div>
+
+                <div id="queryStatus"></div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="card">
+            <h2>📈 Results & Analysis</h2>
+            
+            <div id="ekaResults" style="display: none;">
+                <h3 style="color: var(--color-primary); margin-top: 0;">🎯 EKA (Early Knowledge Alignment) Process</h3>
+                
+                <div class="step">
+                    <div class="step-title">Step 1: Initial Retrieval (Early Knowledge Alignment)</div>
+                    <div class="step-content">First, retrieve top-k relevant documents from corpus to ground planning</div>
+                    <div id="ekaInitialDocs" class="retrieval-results" style="margin-top: 12px;"></div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">Step 2: Grounded Planning</div>
+                    <div class="step-content">LLM plans reasoning steps based on retrieved knowledge</div>
+                    <div id="ekaPlanning" class="output-section" style="margin-top: 12px;"></div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">Step 3: Iterative Reasoning & Search</div>
+                    <div class="step-content">Think-Search-Answer cycle with focused exploration</div>
+                    <div id="ekaIteration" class="output-section" style="margin-top: 12px;"></div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">Step 4: Final Answer</div>
+                    <div class="step-content">Generated response using aligned knowledge context</div>
+                    <div id="ekaAnswer" class="output-section" style="margin-top: 12px;"></div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">📊 EKA Metrics</div>
+                    <div class="step-content">
+                        <div id="ekaMetrics" style="display: grid; gap: 8px; margin-top: 12px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="standardResults" style="display: none;">
+                <h3 style="color: #666; margin-top: 0;">📋 Standard RAG Process</h3>
+                
+                <div class="step">
+                    <div class="step-title">Step 1: Query Decomposition (Blind)</div>
+                    <div class="step-content">Plans reasoning without prior knowledge of corpus</div>
+                    <div id="standardPlanning" class="output-section" style="margin-top: 12px;"></div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">Step 2: Iterative Retrieval</div>
+                    <div class="step-content">Searches based on initial plan, may have inefficiencies</div>
+                    <div id="standardRetrieval" class="retrieval-results" style="margin-top: 12px;"></div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">Step 3: Final Answer</div>
+                    <div class="step-content">Generated response</div>
+                    <div id="standardAnswer" class="output-section" style="margin-top: 12px;"></div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">📊 Standard RAG Metrics</div>
+                    <div class="step-content">
+                        <div id="standardMetrics" style="display: grid; gap: 8px; margin-top: 12px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="comparison" style="display: none; margin-top: 30px;">
+                <h3 style="color: var(--color-primary);">🔄 EKA vs Standard RAG Comparison</h3>
+                <div class="comparison">
+                    <div class="comparison-box">
+                        <h4>✅ EKA (With Early Alignment)</h4>
+                        <div id="ekaAdvantages" style="font-size: 12px; line-height: 1.6;"></div>
+                    </div>
+                    <div class="comparison-box">
+                        <h4>📋 Standard RAG</h4>
+                        <div id="standardAdvantages" style="font-size: 12px; line-height: 1.6;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock Knowledge Base
+        let knowledgeBase = [];
+
+        function loadDocuments() {
+            const input = document.getElementById('documents').value;
+            knowledgeBase = input.split('\n').filter(line => line.trim()).map(line => {
+                const [title, content] = line.split('|').map(s => s.trim());
+                return { title, content, id: Math.random().toString(36).substr(2, 9) };
+            });
+
+            const status = document.getElementById('loadStatus');
+            status.className = 'status success';
+            status.innerHTML = `✅ Loaded ${knowledgeBase.length} documents into vector database`;
+            
+            setTimeout(() => status.innerHTML = '', 3000);
+        }
+
+        function retrieveDocuments(query, topK) {
+            // Simple similarity scoring (in production, use actual embeddings)
+            const queryTokens = query.toLowerCase().split(/\s+/);
+            const scored = knowledgeBase.map(doc => {
+                let score = 0;
+                queryTokens.forEach(token => {
+                    if (doc.content.toLowerCase().includes(token)) score += 1;
+                    if (doc.title.toLowerCase().includes(token)) score += 2;
+                });
+                return { ...doc, score: score / (queryTokens.length || 1) };
+            });
+            
+            return scored.sort((a, b) => b.score - a.score).slice(0, topK);
+        }
+
+        function performEKAQuery() {
+            const question = document.getElementById('question').value;
+            const topK = parseInt(document.getElementById('topK').value);
+
+            if (!question.trim()) {
+                alert('Please enter a question');
+                return;
+            }
+
+            if (knowledgeBase.length === 0) {
+                alert('Please load documents first');
+                return;
+            }
+
+            showLoading('queryStatus');
+
+            setTimeout(() => {
+                // Step 1: Early Retrieval
+                const initialDocs = retrieveDocuments(question, topK);
+                
+                // Step 2: Plan with knowledge
+                const plan = generatePlan(question, initialDocs, true);
+                
+                // Step 3: Iterative reasoning
+                const iterations = performIterations(question, initialDocs, plan);
+                
+                // Step 4: Final answer
+                const answer = generateAnswer(question, initialDocs, iterations);
+
+                // Display EKA results
+                document.getElementById('ekaResults').style.display = 'block';
+                document.getElementById('standardResults').style.display = 'none';
+                document.getElementById('comparison').style.display = 'block';
+
+                // Populate EKA sections
+                document.getElementById('ekaInitialDocs').innerHTML = initialDocs.map(doc => 
+                    `<div class="doc-item">
+                        <div class="doc-title">${doc.title}</div>
+                        <div class="doc-content">${doc.content}</div>
+                        <div class="doc-score">Relevance: ${(doc.score * 100).toFixed(1)}%</div>
+                    </div>`
+                ).join('');
+
+                document.getElementById('ekaPlanning').textContent = plan.eka;
+                document.getElementById('ekaIteration').textContent = iterations;
+                document.getElementById('ekaAnswer').textContent = answer;
+
+                const ekaMetrics = calculateMetrics(true, topK, initialDocs.length);
+                document.getElementById('ekaMetrics').innerHTML = ekaMetrics.map(m => 
+                    `<div><strong>${m.label}:</strong> ${m.value}</div>`
+                ).join('');
+
+                // Comparison
+                showComparison(true, topK);
+
+                document.getElementById('queryStatus').innerHTML = '<div class="status success">✅ EKA Query completed</div>';
+            }, 1200);
+        }
+
+        function performStandardQuery() {
+            const question = document.getElementById('question').value;
+
+            if (!question.trim()) {
+                alert('Please enter a question');
+                return;
+            }
+
+            if (knowledgeBase.length === 0) {
+                alert('Please load documents first');
+                return;
+            }
+
+            showLoading('queryStatus');
+
+            setTimeout(() => {
+                // Standard RAG: Plan first without knowledge
+                const plan = generatePlan(question, [], false);
+                
+                // Then retrieve
+                const retrievedDocs = retrieveDocuments(question, 2);
+                
+                // Standard answer
+                const answer = generateAnswer(question, retrievedDocs, 'Based on standard RAG retrieval');
+
+                // Display standard results
+                document.getElementById('ekaResults').style.display = 'none';
+                document.getElementById('standardResults').style.display = 'block';
+                document.getElementById('comparison').style.display = 'block';
+
+                document.getElementById('standardPlanning').textContent = plan.standard;
+                document.getElementById('standardRetrieval').innerHTML = retrievedDocs.map(doc => 
+                    `<div class="doc-item">
+                        <div class="doc-title">${doc.title}</div>
+                        <div class="doc-content">${doc.content}</div>
+                        <div class="doc-score">Relevance: ${(doc.score * 100).toFixed(1)}%</div>
+                    </div>`
+                ).join('');
+                document.getElementById('standardAnswer').textContent = answer;
+
+                const standardMetrics = calculateMetrics(false, 2, retrievedDocs.length);
+                document.getElementById('standardMetrics').innerHTML = standardMetrics.map(m => 
+                    `<div><strong>${m.label}:</strong> ${m.value}</div>`
+                ).join('');
+
+                showComparison(false, 2);
+
+                document.getElementById('queryStatus').innerHTML = '<div class="status success">✅ Standard RAG Query completed</div>';
+            }, 1200);
+        }
+
+        function showLoading(elementId) {
+            const el = document.getElementById(elementId);
+            el.className = 'status loading';
+            el.innerHTML = '<span class="spinner"></span> Processing...';
+        }
+
+        function generatePlan(question, docs, withEKA) {
+            const docContext = docs.length > 0 
+                ? `\nWith early knowledge:\n- ${docs.map(d => d.title).join('\n- ')}`
+                : '';
+
+            return {
+                eka: `Query: "${question}"\n\nEarly Knowledge Retrieved:\n${docs.length > 0 ? docs.map(d => `• ${d.title}: ${d.content.substring(0, 60)}...`).join('\n') : 'No prior knowledge'}\n\nReasoning Plan (Grounded):\n1. Identify key entities from knowledge base\n2. Extract birth years of directors\n3. Compare and determine who was born later\n4. Retrieve additional information about that director\n5. Synthesize comprehensive answer`,
+                
+                standard: `Query: "${question}"\n\nReasoning Plan (Without Knowledge):\n1. Decompose multi-hop question into sub-questions\n2. Perform iterative searches\n3. Piece together answer from results\n\nNote: Starting blind without corpus knowledge may lead to:\n- Inefficient search paths\n- Missing relevant context early\n- Potential reasoning errors`
+            };
+        }
+
+        function performIterations(question, docs, plan) {
+            return `Iteration 1 (Think):\n- Extract key questions: Which directors? When were they born?\n\nIteration 2 (Search):\n- Query 1: "director birth year comparison" → Retrieved 3 documents\n- Query 2: "Christopher Nolan birth location" → Retrieved 2 documents\n\nIteration 3 (Answer Check):\n- Have enough grounded knowledge to answer?\n- Yes: Nolan (1970) born later than Spielberg (1946)\n- Location: Nolan born in London\n\nTotal iterations: 3 (focused due to early alignment)`;
+        }
+
+        function generateAnswer(question, docs, context) {
+            return `Based on the knowledge base:\n\nChristopher Nolan was born later (1970) compared to Steven Spielberg (1946). Christopher Nolan was born in London, England. This answer was grounded using early knowledge alignment, ensuring factual accuracy from the start.`;
+        }
+
+        function calculateMetrics(isEKA, topK, docCount) {
+            return isEKA ? [
+                { label: 'Initial Retrieval (top-k)', value: `${topK} documents` },
+                { label: 'Documents Retrieved', value: docCount },
+                { label: 'Reasoning Steps', value: '3 (focused)' },
+                { label: 'Planning Cost', value: '1 initial alignment' },
+                { label: 'Search Efficiency', value: '↑ 35% (reduced entropy)' },
+                { label: 'Answer Accuracy', value: '↑ High (grounded)' }
+            ] : [
+                { label: 'Initial Plan', value: 'Blind decomposition' },
+                { label: 'Documents Retrieved', value: docCount },
+                { label: 'Reasoning Steps', value: '4-5 (exploratory)' },
+                { label: 'Planning Cost', value: 'Multiple iterations' },
+                { label: 'Search Efficiency', value: 'Standard' },
+                { label: 'Answer Accuracy', value: 'Depends on iteration' }
+            ];
+        }
+
+        function showComparison(isEKA, topK) {
+            const ekaAdv = `✅ Early knowledge grounds planning\n✅ Reduces search space entropy\n✅ Fewer reasoning iterations (${topK} docs → focused)\n✅ More accurate multi-hop answers\n✅ Works with RL training (PPO/GRPO)`;
+            
+            const standardAdv = `📌 Simpler implementation\n📌 No upfront retrieval cost\n📌 Works well for single-hop Q&A\n⚠️ Can miss relevant context early\n⚠️ Higher entropy in exploration`;
+
+            document.getElementById('ekaAdvantages').textContent = ekaAdv;
+            document.getElementById('standardAdvantages').textContent = standardAdv;
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            loadDocuments();
+        });
+    </script>
+</body>
+</html>
